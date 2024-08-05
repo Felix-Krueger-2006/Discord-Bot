@@ -29,3 +29,19 @@ async def check_minecraft_player_amount(address):
         return int(data['players']['online'])
     else:
         return None
+    
+async def check_minecraft_server(address):
+    response = requests.get(f"https://api.mcsrvstat.us/2/{address}")
+    data = response.json()
+        
+    if response.status_code == 200 and data.get('online'):
+        return {
+            'status': 'online',
+            'players': {
+                'online': data.get('players', {}).get('online', 0),
+                'max': data.get('players', {}).get('max', 0)
+            },
+            'version': data.get('version', 'Unknown')
+        }
+    else:
+        return {'status': 'offline'}
