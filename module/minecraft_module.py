@@ -35,13 +35,6 @@ async def check_minecraft_server(address):
     data = response.json()
         
     if response.status_code == 200 and data.get('online'):
-        return {
-            'status': 'online',
-            'players': {
-                'online': data.get('players', {}).get('online', 0),
-                'max': data.get('players', {}).get('max', 0)
-            },
-            'version': data.get('version', 'Unknown')
-        }
+        return True
     else:
-        return {'status': 'offline'}
+        return False
