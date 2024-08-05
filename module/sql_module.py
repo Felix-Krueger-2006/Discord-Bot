@@ -52,10 +52,22 @@ def get_setting(setting):
 
 def addUser(ingamename, uuid):
     with connection_bot.cursor() as cursor:
-        sql = f"INSERT INTO main_whitelist (UUID, user) VALUES ('{uuid}', '{ingamename.lower()}');"
+        sql = f"INSERT INTO mysql_whitelist (UUID, user) VALUES ('{uuid}', '{ingamename.lower()}');"
         cursor.execute(sql)
         connection_bot.commit()
+
+async def name_check(uuid):
+    with connection_bot.cursor() as cursor:
+        sql_select = "SELECT COUNT(*) FROM mysql_whitelist WHERE UUID = %s;"
+        cursor.execute(sql_select, (uuid, ))
+        result = cursor.fetchone()
+        count = result[0]
         
+        if count <= 0:
+            return False
+        else:
+            return True
+
 try:
     with connection_bot.cursor() as cursor:
         sqls = [
