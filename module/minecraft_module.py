@@ -10,12 +10,16 @@ async def is_valid_minecraft_username(username: str):
         return False
     
 async def get_uuid_from_username(username: str):
-    api_url = f'https://api.mojang.com/users/profiles/minecraft/{username}'
+    api_url = f'https://api.mojang.com/users/profiles/minecraft/{username.lower()}'
     response = requests.get(api_url)
 
     if response.status_code == 200:
         player_data = response.json()
-        return str(player_data['id'])
+        uuid = str(player_data['id'])
+        uuid = '-'.join([uuid[:8], uuid[8:12], uuid[12:16], uuid[16:20], uuid[20:]])
+        
+        return uuid
+    
     elif response.status_code == 204:
         return None
     else:

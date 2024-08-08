@@ -1,25 +1,55 @@
 import pymysql
+from datetime import datetime
 
-try:
-    connection_bot = pymysql.connect(
-        host='lxo.h.filess.io',
-        user='bot_opendoneon',
-        password='8110ec97c1417dcea4a5842aaa2e79b7119a1bf9',
-        port=3307,
-        database='bot_opendoneon'
-    )
-    connection_bansys = pymysql.connect(
-        host='bq6.h.filess.io',
-        user='bansys_couplemill',
-        password='823a3d2cf0cad8436d485dd845a038c44a602761',
-        port=3305,
-        database='bansys_couplemill'
-    )
-except Exception as e:
-    print("Der Bot konnte sich nicht mit der Datenbank verbinden: " + str(e))
+connection_bot = None
+connection_bansys = None
 
-import pymysql
-
+def table_check():
+    global connection_bot
+    global connection_bansys
+    
+    try:
+        connection_bot = pymysql.connect(
+            host='127.0.0.1',
+            user='root',
+            password='',
+            port=3306,
+            database='bot',
+            connect_timeout=30 
+        )
+        connection_bansys = pymysql.connect(
+            host='127.0.0.1',
+            user='root',
+            password='',
+            port=3306,
+            database='bansys',
+            connect_timeout=30 
+        )
+    except Exception as e:
+        print("Der Bot konnte sich nicht mit der Datenbank verbinden: " + str(e))
+        
+    try:
+        with connection_bot.cursor() as cursor:
+            sqls = [
+                "CREATE TABLE IF NOT EXISTS mysql_whitelist (UUID VARCHAR(100) NOT NULL, user VARCHAR(100) NOT NULL);",
+                "CREATE TABLE IF NOT EXISTS settings (setting VARCHAR(255) NOT NULL, value VARCHAR(255) NOT NULL);",
+                "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, discord VARCHAR(255) NOT NULL, minecraft VARCHAR(255) NOT NULL);",
+                "CREATE TABLE IF NOT EXISTS giveaways (id INT AUTO_INCREMENT PRIMARY KEY, author CHAR(255) NOT NULL,title CHAR(255) NOT NULL,description CHAR(255) NOT NULL,image CHAR(255) NOT NULL,winner CHAR(255),start DATE NOT NULL,end DATE NOT NULL,time TIME NOT NULL,begin INTEGER NOT NULL,complete INTEGER NOT NULL, message INTEGER);"
+            ]
+            settings = ["bot-code", "status-channel", "player-channel", "whitelist-channel", "giveaway-channel", "logs-channel", "commands-channel", "server-adress"]
+            
+            for sql in sqls:
+                cursor.execute(sql)
+            
+            for setting in settings:
+                insert_setting(setting)
+                
+            connection_bot.commit()
+            
+    except Exception as e:
+        print("Der Bot konnte die Tabellen nicht erstellen! \nError: " + str(e))
+        
+        
 def insert_setting(setting):
     try:
         with connection_bot.cursor() as cursor:
@@ -35,7 +65,7 @@ def insert_setting(setting):
         connection_bot.commit()
     
     except Exception as e:
-        print("Fehler beim Einfügen des Settings:")
+        print("Fehler beim Einfügen der Settings:")
         print(e)
 
 def get_setting(setting):
@@ -50,16 +80,19 @@ def get_setting(setting):
             
         return {"setting": result[0], "value": result[1]}
 
-def addUser(ingamename, uuid):
+def get_discord_id(uuid):
     with connection_bot.cursor() as cursor:
-        sql = f"INSERT INTO mysql_whitelist (UUID, user) VALUES ('{uuid}', '{ingamename.lower()}');"
-        cursor.execute(sql)
-        connection_bot.commit()
+        sql_select = "SELECT discord FROM user WHERE minecraft = %s;"
+        cursor.execute(sql_select, (uuid, ))
+        result = cursor.fetchone()
+        result = result[0]
+        
+        return result
 
 async def name_check(uuid):
     with connection_bot.cursor() as cursor:
         sql_select = "SELECT COUNT(*) FROM mysql_whitelist WHERE UUID = %s;"
-        cursor.execute(sql_select, (uuid, ))
+        cursor.execute(sql_select, (str(uuid), ))
         result = cursor.fetchone()
         count = result[0]
         
@@ -68,21 +101,106 @@ async def name_check(uuid):
         else:
             return True
 
-try:
+async def user_already_in(id):
     with connection_bot.cursor() as cursor:
-        sqls = [
-            "CREATE TABLE IF NOT EXISTS settings (setting VARCHAR(255) NOT NULL, value VARCHAR(255) NOT NULL);",
-            "CREATE TABLE IF NOT EXISTS user (id INT AUTO_INCREMENT PRIMARY KEY, discord VARCHAR(255) NOT NULL, minecraft VARCHAR(255) NOT NULL);"
-        ]
-        settings = ["bot-code", "status-channel", "player-channel", "whitelist-channel", "giveaway-channel", "logs-channel", "server-adress"]
+        sql_select = "SELECT minecraft FROM users WHERE discord = %s;"
+        cursor.execute(sql_select, (id, ))
+        result = cursor.fetchone()
+        minecraft_uuid = result[0] if result is not None else None
         
-        for sql in sqls:
-            cursor.execute(sql)
+        if minecraft_uuid != None and await name_check(minecraft_uuid):
+            return True
+        else:
+            return False
+
+async def user_exist(id):
+    with connection_bot.cursor() as cursor:
+        sql_select = "SELECT COUNT(*) FROM users WHERE discord = %s;"
+        cursor.execute(sql_select, (str(id), ))
+        result = cursor.fetchone()
+        count = result[0]
         
-        for setting in settings:
-            insert_setting(setting)
-            
+        if count <= 0:
+            return False
+        else:
+            return True
+
+async def delete_user_from_whitelist(uuid):
+    with connection_bot.cursor() as cursor:
+        sql = f"DELETE FROM mysql_whitelist WHERE UUID = '{uuid}';"
+        cursor.execute(sql)
+        connection_bot.commit()
+
+async def add_user_to_whitelist(name, uuid):
+    with connection_bot.cursor() as cursor:
+        sql = f"INSERT INTO mysql_whitelist (UUID, user) VALUES ('{uuid}', '{name}');"
+        cursor.execute(sql)
         connection_bot.commit()
         
-except Exception as e:
-    print("Der Bot konnte die Tabellen nicht erstellen! \nError: " + str(e))
+async def add_user_to_table(discord, minecraft):
+    with connection_bot.cursor() as cursor:
+        sql = f"INSERT INTO users (id, discord, minecraft) VALUES (0, '{discord}', '{minecraft}');"
+        cursor.execute(sql)
+        connection_bot.commit()
+        
+async def replace_user_in_table(uuid, id):
+    with connection_bot.cursor() as cursor:
+        sql = "UPDATE users SET minecraft = %s WHERE discord = %s;"
+        cursor.execute(sql, (str(uuid), str(id), ))
+        connection_bot.commit()
+        
+async def check_if_giveaway_starts():
+    day = datetime.now().strftime("%Y-%m-%d")
+    time = datetime.now().strftime("%H:%M:%S")
+    with connection_bot.cursor() as cursor:
+        sql = "SELECT * FROM giveaways WHERE start = %s AND time < %s"
+        cursor.execute(sql, (day, time, ))
+        result = cursor.fetchone()
+        
+        if result:
+            return result
+        else:
+            return None
+
+async def check_if_giveaway_ends():
+    day = datetime.now().strftime("%Y-%m-%d")
+    time = datetime.now().strftime("%H:%M:%S")
+    with connection_bot.cursor() as cursor:
+        sql = "SELECT * FROM giveaways WHERE end = %s AND time < %s"
+        cursor.execute(sql, (day, time, ))
+        result = cursor.fetchone()
+        
+        if result:
+            return result
+        else:
+            return None
+
+async def set_giveaway_on_active(liste, message):
+    id = liste[0]
+    with connection_bot.cursor() as cursor:
+        sql = "UPDATE giveaways SET begin = %s AND message %s WHERE id = %s;"
+        cursor.execute(sql, (1, message, id, ))
+        connection_bot.commit()
+        
+async def set_giveaway_on_ends(liste):
+    id = liste[0]
+    with connection_bot.cursor() as cursor:
+        sql = "UPDATE giveaways SET complete = %s WHERE id = %s;"
+        cursor.execute(sql, (1, id, ))
+        connection_bot.commit()
+
+async def set_giveaway_winner(liste, user):
+    id = liste[0]
+    winner = str(user.id) + "§" + str(user.name)
+    with connection_bot.cursor() as cursor:
+        sql = "UPDATE giveaways SET winner = %s WHERE id = %s;"
+        cursor.execute(sql, (winner, ))
+        connection_bot.commit()
+        
+async def count_whitelist():
+    with connection_bot.cursor() as cursor:
+        sql = "SELECT COUNT(*) FROM mysql_whitelist"
+        cursor.execute(sql)
+        result = cursor.fetchone()[0]
+        
+        return result
