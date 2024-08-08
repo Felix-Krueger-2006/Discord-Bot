@@ -72,3 +72,32 @@ async def limit_embed(count):
     )
     
     return embed
+
+async def show_error_embed(message):
+    embed = discord.Embed(
+        title= "Spielersuche läuft...",
+        description= f"Es wurde kein Eintrag für **" + str(message) + "** gefunden.",
+        color=discord.Color(0xf54254)
+    )
+    
+    return embed
+
+async def show_discord_embed(user, name):
+    message = "Dem Spieler  **" + str(name) + "**  konnte der Discord account <@" + str(user.id) + "> aka **" + str(user.name) + "** zugeordnet werden."
+    embed = discord.Embed(
+        title= "Spielersuche läuft...",
+        description= message,
+        color=discord.Color(0x237feb)
+    )
+    
+    return embed
+
+async def show_minecraft_embed(user, uuid, name):
+    message = "Dem Spieler  <@" + str(user.id) + ">  konnte der Minecraft account **" + str(name) + "** aka **" + str(uuid) + "** zugeordnet werden."
+    embed = discord.Embed(
+        title= "Spielersuche läuft...",
+        description= message,
+        color=discord.Color(0x237feb)
+    )
+    
+    return embed

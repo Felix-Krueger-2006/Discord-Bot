@@ -34,7 +34,7 @@ def table_check():
                 "CREATE TABLE IF NOT EXISTS mysql_whitelist (UUID VARCHAR(100) NOT NULL, user VARCHAR(100) NOT NULL);",
                 "CREATE TABLE IF NOT EXISTS settings (setting VARCHAR(255) NOT NULL, value VARCHAR(255) NOT NULL);",
                 "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, discord VARCHAR(255) NOT NULL, minecraft VARCHAR(255) NOT NULL);",
-                "CREATE TABLE IF NOT EXISTS giveaways (id INT AUTO_INCREMENT PRIMARY KEY, author CHAR(255) NOT NULL,title CHAR(255) NOT NULL,description CHAR(255) NOT NULL,image CHAR(255) NOT NULL,winner CHAR(255),start DATE NOT NULL,end DATE NOT NULL,time TIME NOT NULL,begin INTEGER NOT NULL,complete INTEGER NOT NULL, message INTEGER);"
+                "CREATE TABLE IF NOT EXISTS giveaways (id INT AUTO_INCREMENT PRIMARY KEY, author CHAR(255) NOT NULL,title CHAR(255) NOT NULL,description CHAR(255) NOT NULL,image CHAR(255) NOT NULL,winner CHAR(255),start DATE NOT NULL,end DATE NOT NULL,time TIME NOT NULL,begin INTEGER NOT NULL,complete INTEGER NOT NULL, message CHAR(255));"
             ]
             settings = ["bot-code", "status-channel", "player-channel", "whitelist-channel", "giveaway-channel", "logs-channel", "commands-channel", "server-adress"]
             
@@ -82,12 +82,25 @@ def get_setting(setting):
 
 def get_discord_id(uuid):
     with connection_bot.cursor() as cursor:
-        sql_select = "SELECT discord FROM user WHERE minecraft = %s;"
+        sql_select = "SELECT discord FROM users WHERE minecraft = %s;"
         cursor.execute(sql_select, (uuid, ))
-        result = cursor.fetchone()
-        result = result[0]
-        
-        return result
+        try:
+            result = cursor.fetchone()
+            result = result[0]
+            return result
+        except:
+            return None
+
+def get_minecraft_uuid(id):
+    with connection_bot.cursor() as cursor:
+        sql_select = "SELECT minecraft FROM users WHERE discord = %s;"
+        cursor.execute(sql_select, (id, ))
+        try:
+            result = cursor.fetchone()
+            result = result[0]
+            return result
+        except:
+            return None
 
 async def name_check(uuid):
     with connection_bot.cursor() as cursor:
@@ -178,8 +191,8 @@ async def check_if_giveaway_ends():
 async def set_giveaway_on_active(liste, message):
     id = liste[0]
     with connection_bot.cursor() as cursor:
-        sql = "UPDATE giveaways SET begin = %s AND message %s WHERE id = %s;"
-        cursor.execute(sql, (1, message, id, ))
+        sql = "UPDATE giveaways SET begin = %s, message = %s WHERE id = %s;"
+        cursor.execute(sql, (1, str(message), id, ))
         connection_bot.commit()
         
 async def set_giveaway_on_ends(liste):

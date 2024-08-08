@@ -24,7 +24,21 @@ async def get_uuid_from_username(username: str):
         return None
     else:
         raise Exception(f"Fehler bei der Anfrage. Statuscode: {response.status_code}")
+
+def get_minecraft_name(uuid):
+    uuid = uuid.replace("-", "")
+    url = f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
     
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+
+    if data:
+        current_name = data['name']
+        return current_name
+    else:
+        return None
+
 async def check_minecraft_player_amount(address):
     response = requests.get(f'https://api.mcsrvstat.us/2/{address}')
     data = response.json()
